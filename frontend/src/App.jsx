@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSummary, getTransactions, createTransaction, updateTransaction, deleteTransaction } from './api';
 import {
   ConfigProvider, Button, Card, Statistic, Row, Col, Modal, Form, Input,
-  Select, DatePicker, InputNumber, Popconfirm, Collapse, message,
+  Select, DatePicker, InputNumber, Popconfirm, Collapse, Segmented, message,
 } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
@@ -39,7 +39,19 @@ const TYPE_OPTIONS = [
 
 const CATEGORIES = {
   income: ['工资', '奖金', '理财', '兼职', '退款', '其他'],
-  expense: ['餐饮', '交通', '购物', '居住', '娱乐', '医疗', '人情', '其他'],
+  expense: ['餐饮', '交通', '购物', '居住', '水电', '娱乐', '医疗', '人情', '其他'],
+};
+
+const VIEW_OPTIONS = [
+  { label: '全部', value: 'all' },
+  { label: '支出', value: 'expense' },
+  { label: '收入', value: 'income' },
+];
+
+const EMPTY_TEXT = {
+  all: '本月还没有记录，点上方按钮记一笔吧',
+  expense: '本月还没有支出记录',
+  income: '本月还没有收入记录',
 };
 
 function App() {
@@ -48,6 +60,7 @@ function App() {
   const [list, setList] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [view, setView] = useState('all');
   const [form] = Form.useForm();
   const type = Form.useWatch('type', form) || 'expense';
 
@@ -104,16 +117,21 @@ function App() {
     setList(data.list);
   };
 
+  const shownList = useMemo(() => {
+    if (view === 'all') return list;
+    return list.filter((i) => i.type === view);
+  }, [list, view]);
+
   const groups = useMemo(() => {
     const byDate = new Map();
-    list.forEach((item) => {
+    shownList.forEach((item) => {
       if (!byDate.has(item.date)) byDate.set(item.date, []);
       byDate.get(item.date).push(item);
     });
     return Array.from(byDate.entries())
       .map(([date, items]) => ({ date, items }))
       .sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [list]);
+  }, [shownList]);
 
   const categoryOptions = (() => {
     const base = CATEGORIES[type].map((c) => ({ value: c, label: c }));
@@ -192,15 +210,19 @@ function App() {
           + 记一笔
         </Button>
 
+        <div className="list-toolbar">
+          <Segmented value={view} onChange={(v) => setView(v)} options={VIEW_OPTIONS} />
+        </div>
+
         <Card className="txn-card">
           {groups.length === 0 ? (
-            <div className="txn-empty">本月还没有记录，点上方按钮记一笔吧</div>
+            <div className="txn-empty">{EMPTY_TEXT[view]}</div>
           ) : (
             <Collapse
               className="day-group"
-              key={month}
+              key={`${month}-${view}`}
               ghost
-              defaultActiveKey={groups.map((g) => g.date)}
+              defaultActiveKey={[]}
               expandIconPosition="end"
               items={groups.map((g) => {
                 const exp = g.items

@@ -34,10 +34,15 @@
 
 .add-btn {
   height: 46px;
-  margin: 20px 0;
+  margin: 20px 0 12px;
   border-radius: 12px;
   font-size: 16px;
   letter-spacing: 2px;
+}
+
+.list-toolbar {
+  display: flex;
+  margin-bottom: 12px;
 }
 
 .txn-card .ant-card-body {
