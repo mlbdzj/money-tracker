@@ -1,12 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { getSummary, getTransactions, createTransaction, updateTransaction, deleteTransaction } from './api';
 import {
-  ConfigProvider, Button, List, Card, Statistic, Row, Col, Modal, Form, Input,
-  Select, DatePicker, InputNumber, Popconfirm, message,
+  ConfigProvider, Button, Card, Statistic, Row, Col, Modal, Form, Input,
+  Select, DatePicker, InputNumber, Popconfirm, Collapse, message,
 } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
 import './App.css';
+
+dayjs.locale('zh-cn');
 
 const theme = {
   token: {
@@ -36,7 +39,7 @@ const TYPE_OPTIONS = [
 
 const CATEGORIES = {
   income: ['工资', '奖金', '理财', '兼职', '退款', '其他'],
-  expense: ['餐饮', '交通', '购物', '居住', '水电', '娱乐', '医疗', '人情', '其他'],
+  expense: ['餐饮', '交通', '购物', '居住', '娱乐', '医疗', '人情', '其他'],
 };
 
 function App() {
@@ -101,6 +104,17 @@ function App() {
     setList(data.list);
   };
 
+  const groups = useMemo(() => {
+    const byDate = new Map();
+    list.forEach((item) => {
+      if (!byDate.has(item.date)) byDate.set(item.date, []);
+      byDate.get(item.date).push(item);
+    });
+    return Array.from(byDate.entries())
+      .map(([date, items]) => ({ date, items }))
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+  }, [list]);
+
   const categoryOptions = (() => {
     const base = CATEGORIES[type].map((c) => ({ value: c, label: c }));
     if (editing && !CATEGORIES[type].includes(editing.category)) {
@@ -147,6 +161,7 @@ function App() {
           </div>
           <DatePicker
             picker="month"
+            format="YYYY年M月"
             value={dayjs(month, 'YYYY-MM')}
             onChange={(v) => v && setMonth(v.format('YYYY-MM'))}
             allowClear={false}
@@ -178,35 +193,61 @@ function App() {
         </Button>
 
         <Card className="txn-card">
-          <List
-            dataSource={list}
-            locale={{ emptyText: <div className="txn-empty">本月还没有记录，点上方按钮记一笔吧</div> }}
-            renderItem={(item) => (
-              <List.Item className="txn-item">
-                <div className="txn-main">
-                  <div className="txn-info">
-                    <div className="txn-category">{item.category}</div>
-                    <div className="txn-date">
-                      {dayjs(item.date).format('M月D日')}
-                      {item.note ? ` · ${item.note}` : ''}
+          {groups.length === 0 ? (
+            <div className="txn-empty">本月还没有记录，点上方按钮记一笔吧</div>
+          ) : (
+            <Collapse
+              className="day-group"
+              key={month}
+              ghost
+              defaultActiveKey={groups.map((g) => g.date)}
+              expandIconPosition="end"
+              items={groups.map((g) => {
+                const exp = g.items
+                  .filter((i) => i.type === 'expense')
+                  .reduce((s, i) => s + Number(i.amount), 0);
+                const inc = g.items
+                  .filter((i) => i.type === 'income')
+                  .reduce((s, i) => s + Number(i.amount), 0);
+                return {
+                  key: g.date,
+                  label: (
+                    <div className="day-head">
+                      <div className="day-title">
+                        {dayjs(g.date).format('M月D日')}
+                        <span className="day-weekday">{dayjs(g.date).format('ddd')}</span>
+                      </div>
+                      <div className="day-meta">
+                        <span>{g.items.length} 笔</span>
+                        {exp > 0 && <span className="day-meta-expense">支出 ¥{exp.toFixed(2)}</span>}
+                        {inc > 0 && <span className="day-meta-income">收入 ¥{inc.toFixed(2)}</span>}
+                      </div>
                     </div>
-                  </div>
-                  <div
-                    className="txn-amount"
-                    style={{ color: item.type === 'income' ? INCOME_COLOR : EXPENSE_COLOR }}
-                  >
-                    {item.type === 'income' ? '+' : '-'}¥{Number(item.amount).toFixed(2)}
-                  </div>
-                  <div className="txn-actions">
-                    <Button type="text" size="small" onClick={() => openEdit(item)}>编辑</Button>
-                    <Popconfirm title="删除这笔记录？" onConfirm={() => handleDelete(item.id)}>
-                      <Button type="text" size="small" danger className="txn-delete">删除</Button>
-                    </Popconfirm>
-                  </div>
-                </div>
-              </List.Item>
-            )}
-          />
+                  ),
+                  children: g.items.map((item) => (
+                    <div className="txn-row" key={item.id}>
+                      <div className="txn-info">
+                        <div className="txn-category">{item.category}</div>
+                        {item.note ? <div className="txn-note">{item.note}</div> : null}
+                      </div>
+                      <div
+                        className="txn-amount"
+                        style={{ color: item.type === 'income' ? INCOME_COLOR : EXPENSE_COLOR }}
+                      >
+                        {item.type === 'income' ? '+' : '-'}¥{Number(item.amount).toFixed(2)}
+                      </div>
+                      <div className="txn-actions">
+                        <Button type="text" size="small" onClick={() => openEdit(item)}>编辑</Button>
+                        <Popconfirm title="删除这笔记录？" onConfirm={() => handleDelete(item.id)}>
+                          <Button type="text" size="small" danger>删除</Button>
+                        </Popconfirm>
+                      </div>
+                    </div>
+                  )),
+                };
+              })}
+            />
+          )}
         </Card>
 
         <Modal title={editing ? '修改记录' : '记一笔'} open={isModalOpen}
