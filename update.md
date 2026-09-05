@@ -4,6 +4,10 @@
 
 ## 2026-09-05
 
+### 4. 补充 README 启动说明
+- 根目录 README.md 补充前后端启动方法：数据库准备、环境变量配置、后端 uvicorn 启动、前端 npm run dev
+- 附带常用命令表与目录结构说明
+
 ### 1. 前端整体风格改为清爽浅色记账风
 - 清理 Vite 脚手架残留的默认样式（index.css / App.css 重写）
 - 引入 antd `ConfigProvider` 主题：近黑主色、细浅边框、柔和圆角、暖米白背景 `#f6f4ef`、中文 locale
